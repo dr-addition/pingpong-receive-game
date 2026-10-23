@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>3D卓球サーブ見極めマスター</title>
+  <!-- Three.js (3Dグラフィックス) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      background-color: #050811;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Meiryo", sans-serif;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* 3Dキャンバスコンテナ */
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+
+    /* ==========================================================================
+       タイトル画面
+       ========================================================================== */
+    #title-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 100;
+      background: radial-gradient(circle at center, rgba(15, 23, 42, 0.92) 0%, rgba(5, 8, 17, 0.98) 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      backdrop-filter: blur(8px);
+      transition: opacity 0.3s, visibility 0.3s;
+    }
+
+    #title-screen.hide {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .title-logo-badge {
+      font-size: 0.85rem;
+      font-weight: 800;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      padding: 6px 16px;
+      border-radius: 20px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    .title-main-text {
+      font-size: 2.8rem;
+      font-weight: 900;
+      color: #ffffff;
+      text-align: center;
+      line-height: 1.2;
+      text-shadow: 0 0 30px rgba(56, 189, 248, 0.6);
+      letter-spacing: 1px;
+    }
+
+    .title-sub-text {
+      font-size: 1.05rem;
+      color: #94a3b8;
+      text-align: center;
+      max-width: 540px;
+      line-height: 1.6;
+    }
+
+    .mode-select-wrap {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 10px;
+    }
+
+    .mode-card-btn {
+      width: 250px;
+      background: rgba(30, 41, 59, 0.85);
+      border: 2px solid #334155;
+      border-radius: 18px;
+      padding: 22px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .mode-card-btn:hover {
+      transform: translateY(-5px);
+      border-color: #38bdf8;
+      box-shadow: 0 10px 30px rgba(56, 189, 248, 0.35);
+      background: rgba(30, 41, 59, 0.98);
+    }
+
+    .mode-card-btn:active {
+      transform: scale(0.97);
+    }
+
+    .mode-icon {
+      font-size: 2.6rem;
+      line-height: 1;
+    }
+
+    .mode-name {
+      font-size: 1.35rem;
+      font-weight: 900;
+      color: #ffffff;
+    }
+
+    .mode-desc {
+      font-size: 0.82rem;
+      color: #cbd5e1;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    /* ==========================================================================
+       上部ステータスバー
+       ========================================================================== */
+    #top-bar {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 30px;
+      padding: 8px 22px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      transition: opacity 0.3s;
+    }
+
+    .badge-mode {
+      font-size: 0.85rem;
+      font-weight: 800;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      padding: 3px 10px;
+      border-radius: 12px;
+    }
+
+    .badge-info {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+
+    .badge-status {
+      font-size: 0.82rem;
+      font-weight: 800;
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: #1e293b;
+      color: #fbbf24;
+      border: 1px solid #f59e0b;
+      transition: all 0.25s;
+    }
+
+    .badge-status.active {
+      background: #0284c7;
+      color: #ffffff;
+      border-color: #38bdf8;
+      animation: pulse-glow 1s infinite alternate;
+    }
+
+    @keyframes pulse-glow {
+      0% { box-shadow: 0 0 4px #38bdf8; }
+      100% { box-shadow: 0 0 16px #38bdf8; }
+    }
+
+    /* タイトルへ戻るボタン */
+    #btn-to-title {
+      position: absolute;
+      top: 14px;
+      left: 20px;
+      z-index: 10;
+      background: rgba(30, 41, 59, 0.8);
+      color: #94a3b8;
+      border: 1px solid #475569;
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    #btn-to-title:hover {
+      background: #334155;
+      color: #ffffff;
+      border-color: #38bdf8;
+    }
+
+    /* ==========================================================================
+       画面右下の回答用ボール
+       ========================================================================== */
+    #answer-panel {
+      position: absolute;
+      bottom: 22px;
+      right: 22px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      background: rgba(15, 23, 42, 0.9);
+      backdrop-filter: blur(8px);
+      border: 2px solid rgba(56, 189, 248, 0.3);
+      border-radius: 20px;
+      padding: 12px 16px 10px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+      transition: border-color 0.25s, box-shadow 0.25s;
+    }
+
+    #answer-panel.ready {
+      border-color: #38bdf8;
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.6);
+    }
+
+    .answer-guide {
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: #94a3b8;
+      letter-spacing: 0.5px;
+    }
+
+    #answer-panel.ready .answer-guide {
+      color: #38bdf8;
+    }
+
+    #answer-ball-canvas {
+      width: 155px;
+      height: 155px;
+      border-radius: 50%;
+      cursor: pointer;
+      touch-action: none;
+      transition: transform 0.08s;
+    }
+
+    #answer-ball-canvas:active {
+      transform: scale(0.96);
+    }
+
+    #timer-bar-wrap {
+      width: 135px;
+      height: 5px;
+      background: #334155;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    #timer-bar {
+      width: 100%;
+      height: 100%;
+      background: #38bdf8;
+      transition: width 0.05s linear;
+    }
+
+    /* ==========================================================================
+       各問題の判定結果モーダル（〇 / × ＋ サーブ名 ＋ ボタン）
+       ========================================================================== */
+    #result-modal {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.7);
+      z-index: 50;
+      background: rgba(15, 23, 42, 0.94);
+      backdrop-filter: blur(12px);
+      border: 2px solid #334155;
+      border-radius: 24px;
+      padding: 24px 36px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      min-width: 320px;
+    }
+
+    #result-modal.show {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #result-modal.correct {
+      border-color: #22c55e;
+      box-shadow: 0 0 35px rgba(34, 197, 94, 0.4);
+    }
+
+    #result-modal.incorrect {
+      border-color: #ef4444;
+      box-shadow: 0 0 35px rgba(239, 68, 68, 0.4);
+    }
+
+    .result-mark {
+      font-size: 110px;
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    #result-modal.correct .result-mark {
+      color: #22c55e;
+      text-shadow: 0 0 30px rgba(34, 197, 94, 0.8);
+    }
+
+    #result-modal.incorrect .result-mark {
+      color: #ef4444;
+      text-shadow: 0 0 30px rgba(239, 68, 68, 0.8);
+    }
+
+    .result-serve-name {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #ffffff;
+      background: rgba(30, 41, 59, 0.8);
+      padding: 6px 18px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      text-align: center;
+    }
+
+    .result-btns-wrap {
+      display: flex;
+      gap: 12px;
+      margin-top: 6px;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .btn-action {
+      background: #0284c7;
+      color: #ffffff;
+      border: 1px solid #38bdf8;
+      border-radius: 12px;
+      padding: 10px 22px;
+      font-size: 0.95rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex: 1;
+      text-align: center;
+    }
+
+    .btn-action:hover {
+      background: #0369a1;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.5);
+    }
+
+    .btn-action.retry {
+      background: #334155;
+      border-color: #64748b;
+      color: #f1f5f9;
+    }
+
+    .btn-action.retry:hover {
+      background: #475569;
+      border-color: #94a3b8;
+    }
+
+    /* ==========================================================================
+       最終結果画面
+       ========================================================================== */
+    #final-modal {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.7);
+      z-index: 60;
+      background: rgba(15, 23, 42, 0.96);
+      backdrop-filter: blur(14px);
+      border: 2px solid #38bdf8;
+      border-radius: 28px;
+      padding: 36px 42px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 0 50px rgba(56, 189, 248, 0.4);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      max-width: 440px;
+      width: 90%;
+      text-align: center;
+    }
+
+    #final-modal.show {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .final-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #38bdf8;
+      letter-spacing: 1px;
+    }
+
+    .final-score-huge {
+      font-size: 2.8rem;
+      font-weight: 900;
+      color: #ffffff;
+      margin: 4px 0;
+      text-shadow: 0 0 25px rgba(255, 255, 255, 0.4);
+    }
+
+    .final-comment {
+      font-size: 1.0rem;
+      font-weight: 700;
+      color: #cbd5e1;
+      line-height: 1.6;
+    }
+
+    .btn-to-title-final {
+      background: #0284c7;
+      color: #ffffff;
+      border: 2px solid #38bdf8;
+      border-radius: 14px;
+      padding: 12px 30px;
+      font-size: 1.05rem;
+      font-weight: 800;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: all 0.2s;
+      width: 100%;
+    }
+
+    .btn-to-title-final:hover {
+      background: #0369a1;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.6);
+    }
+  </style>
+</head>
+<body>
+  <!-- 3Dステージ -->
+  <div id="canvas-container"></div>
+
+  <!-- タイトル画面 -->
+  <div id="title-screen">
+    <div class="title-logo-badge">Professional Table Tennis Simulator</div>
+    <h1 class="title-main-text">3D卓球サーブ見極めマスター</h1>
+    <p class="title-sub-text">
+      相手ラケットの「擦り方」と「インパクト位置」を鋭く見極めろ！<br>
+      球が手前に届く2秒以内に、右下のボールをクリックして回転を判定！
+    </p>
+    <div class="mode-select-wrap">
+      <div class="mode-card-btn" id="btn-mode-practice">
+        <div class="mode-icon">🔰</div>
+        <div class="mode-name">練習モード</div>
+        <div class="mode-desc">全8種類を順番に出題。<br>何度でも納得いくまで「もう一回」やり直せます。</div>
+      </div>
+      <div class="mode-card-btn" id="btn-mode-match">
+        <div class="mode-icon">⚡</div>
+        <div class="mode-name">実践モード</div>
+        <div class="mode-desc">全8種類からランダム出題。<br>やり直しなしの一発勝負テスト！</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 上部ステータスバー -->
+  <button id="btn-to-title">⌂ タイトルへ</button>
+  <div id="top-bar">
+    <span id="badge-mode-name" class="badge-mode">練習モード</span>
+    <span id="q-counter" class="badge-info">第 1 問 / 8</span>
+    <span id="score-counter" class="badge-info">正解: 0</span>
+    <span id="status-badge" class="badge-status">⏱ 構え静止中（3秒）</span>
+  </div>
+
+  <!-- 各問題の判定結果モーダル -->
+  <div id="result-modal">
+    <div id="result-mark" class="result-mark">〇</div>
+    <div id="result-serve-name" class="result-serve-name">順横下回転</div>
+    <div class="result-btns-wrap" id="result-btns-wrap">
+      <button id="btn-retry" class="btn-action retry">↺ もう一回</button>
+      <button id="btn-next" class="btn-action">次へ進む ▶</button>
+    </div>
+  </div>
+
+  <!-- 最終結果画面 -->
+  <div id="final-modal">
+    <div class="final-title">GAME COMPLETED</div>
+    <div id="final-score" class="final-score-huge">8問中 8問正解！</div>
+    <div id="final-comment" class="final-comment">完全制覇！プロ並みの神眼！すべてのサーブを見破りました！</div>
+    <button id="btn-final-title" class="btn-to-title-final">タイトル画面へ戻る ⌂</button>
+  </div>
+
+  <!-- 画面右下の回答用ボール -->
+  <div id="answer-panel">
+    <div id="timer-bar-wrap">
+      <div id="timer-bar"></div>
+    </div>
+    <canvas id="answer-ball-canvas" width="310" height="310"></canvas>
+    <div class="answer-guide">擦った位置をクリック！</div>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       1. サーブ全8種類の定義（参考動画に基づくスイング力学・擦り位置）
+       【レシーバーから見た正しいスイング方向】
+       - 順横系（3時、4〜5時、1〜2時）：レシーバーから見て【左側から右側へ（→）】
+       - 逆横系（9時、7〜8時、10〜11時）：レシーバーから見て【右側から左側へ（←）】
+       ========================================================================== */
+    const SERVES = [
+      {
+        id: "topspin",
+        name: "真上回転",
+        targetHour: 12,
+        contactHour: 6, // 静止時は6時あたり（下から支える）
+        validHours: [11, 12, 1],
+        headDown: false,
+        desc: "ボールの【12時】を後ろから前へ押し出すように擦る",
+        stanceOffset: [0, -0.06, -0.02],
+        backswingOffset: [0, -0.10, -0.12],
+        impactStart: [0, 0.08, -0.08],
+        impactEnd: [0, 0.20, 0.16],
+        pitch: -0.35 // 前へ被せる
+      },
+      {
+        id: "backspin",
+        name: "真下回転",
+        targetHour: 6,
+        contactHour: 6, // 静止時は6時あたり
+        validHours: [5, 6, 7],
+        headDown: false,
+        desc: "面を上に向けて寝かせ、ボールの【6時】の下を水平に滑らせるように擦る",
+        stanceOffset: [0, -0.07, 0.0],
+        backswingOffset: [0, -0.08, -0.14],
+        impactStart: [0, -0.05, -0.10],
+        impactEnd: [0, -0.05, 0.20],
+        pitch: 0.85 // 面を大きく寝かせる
+      },
+      {
+        id: "side_pure",
+        name: "順横回転",
+        targetHour: 3,
+        contactHour: 3, // 静止時は3時あたり
+        validHours: [2, 3, 4],
+        headDown: true, // ヘッド真下、グリップ上！
+        desc: "ヘッドを下に向けて、ボールの【3時】を左から右へ（→）鋭く擦る",
+        stanceOffset: [0.08, 0.02, 0],
+        backswingOffset: [-0.18, 0.04, -0.12], // 左へバックスイング
+        impactStart: [-0.15, 0.02, -0.06],      // 左から
+        impactEnd: [0.20, 0.02, 0.15],         // 右へ振り抜く（→）
+        pitch: 0.0
+      },
+      {
+        id: "side_down",
+        name: "順横下回転",
+        targetHour: 4.5,
+        contactHour: 3, // 静止時は3時あたり
+        validHours: [3, 4, 5, 6],
+        headDown: true, // ヘッド真下、グリップ上！
+        desc: "面をやや寝かせ、ボールの【4〜5時】を左上から右下へ（→）擦り下ろす",
+        stanceOffset: [0.08, 0.02, 0],
+        backswingOffset: [-0.18, 0.14, -0.12], // 左上へバックスイング
+        impactStart: [-0.12, 0.12, -0.06],      // 左上から
+        impactEnd: [0.18, -0.15, 0.15],        // 右下へ振り抜く（→）
+        pitch: 0.45 // やや寝かせる
+      },
+      {
+        id: "side_up",
+        name: "順横上回転",
+        targetHour: 1.5,
+        contactHour: 3, // 静止時は3時あたり
+        validHours: [12, 1, 2, 3],
+        headDown: true, // ヘッド真下、グリップ上！
+        desc: "面を立てて、ボールの【1〜2時】を左下から右上へ（→）斜めに擦り上げる",
+        stanceOffset: [0.08, 0.02, 0],
+        backswingOffset: [-0.18, -0.08, -0.12], // 左下へバックスイング
+        impactStart: [-0.12, -0.06, -0.06],      // 左下から
+        impactEnd: [0.18, 0.18, 0.15],         // 右上へ振り抜く（→）
+        pitch: -0.25 // 面を立てる
+      },
+      {
+        id: "reverse_pure",
+        name: "逆横回転",
+        targetHour: 9,
+        contactHour: 9, // 静止時は9時あたり
+        validHours: [8, 9, 10],
+        headDown: false, // ヘッド立て、グリップ下！
+        desc: "ヘッドを立てて、ボールの【9時】を右から左へ（←）えぐるように横に擦る",
+        stanceOffset: [-0.08, -0.02, 0],
+        backswingOffset: [0.18, -0.02, -0.12], // 右へバックスイング
+        impactStart: [0.15, -0.02, -0.06],      // 右から
+        impactEnd: [-0.20, -0.02, 0.15],       // 左へ振り抜く（←）
+        pitch: 0.0
+      },
+      {
+        id: "reverse_down",
+        name: "逆横下回転",
+        targetHour: 7.5,
+        contactHour: 9, // 静止時は9時あたり
+        validHours: [6, 7, 8, 9],
+        headDown: false, // ヘッド立て、グリップ下！
+        desc: "ヘッドを立てて少し寝かせ、ボールの【7〜8時】を右上から左下へ（←）擦り下ろす",
+        stanceOffset: [-0.08, -0.02, 0],
+        backswingOffset: [0.18, 0.14, -0.12],  // 右上へバックスイング
+        impactStart: [0.14, 0.12, -0.06],       // 右上から
+        impactEnd: [-0.16, -0.15, 0.15],       // 左下へ振り抜く（←）
+        pitch: 0.45 // 少し寝かせる
+      },
+      {
+        id: "reverse_up",
+        name: "逆横上回転",
+        targetHour: 10.5,
+        contactHour: 9, // 静止時は9時あたり
+        validHours: [9, 10, 11, 12],
+        headDown: false, // ヘッド立て、グリップ下！
+        desc: "ヘッドを立てて、ボールの【10〜11時】を右下から左上へ（←）擦り上げる",
+        stanceOffset: [-0.08, -0.02, 0],
+        backswingOffset: [0.18, -0.08, -0.12], // 右下へバックスイング
+        impactStart: [0.14, -0.06, -0.06],      // 右下から
+        impactEnd: [-0.16, 0.18, 0.15],        // 左上へ振り抜く（←）
+        pitch: -0.25 // 面を立てる
+      }
+    ];
+
+    /* ==========================================================================
+       2. Web Audio API 効果音
+       ========================================================================== */
+    class SoundFX {
+      constructor() {
+        this.ctx = null;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+      }
+      playImpact() {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(680, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(130, this.ctx.currentTime + 0.07);
+        gain.gain.setValueAtTime(0.7, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.07);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.07);
+      }
+      playBounce() {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.06);
+        gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.06);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.06);
+      }
+      playSuccess() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const notes = [523.25, 659.25, 783.99, 1046.5];
+        notes.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.28, now + idx * 0.07);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.22);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + idx * 0.07);
+          osc.stop(now + idx * 0.07 + 0.22);
+        });
+      }
+      playFail() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(170, now);
+        osc.frequency.linearRampToValueAtTime(105, now + 0.28);
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.28);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.28);
+      }
+      playClick() {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(300, this.ctx.currentTime + 0.03);
+        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.03);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.03);
+      }
+    }
+    const sound = new SoundFX();
+
+    /* ==========================================================================
+       3. Three.js 3D シーン
+       - カメラ視点: 常に【卓球台の面から30cm高い位置】(Y = 0.30) に完全固定！
+       - 手前側の台が絶対に切れない画角設計
+       ========================================================================== */
+    let scene, camera, renderer;
+    let tableGroup, serverBallMesh, serverRacketGroup;
+
+    const TABLE_L = 2.74;  // 長さ
+    const TABLE_W = 1.525; // 幅
+    const NET_H = 0.1525;  // ネット高さ
+
+    const BALL_START_POS = new THREE.Vector3(0.18, 0.24, -1.45);
+    const BALL_RADIUS = 0.038;
+
+    function initThree() {
+      const container = document.getElementById('canvas-container');
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x060913);
+      scene.fog = new THREE.FogExp2(0x060913, 0.08);
+
+      // 【重要】カメラ視点は常に「卓球台の面から30cm高い位置」(Y = 0.30) に完全固定！
+      // 画面下が切れないようZ位置とFOVを綿密に調整
+      camera = new THREE.PerspectiveCamera(54, width / height, 0.1, 50);
+      camera.position.set(0, 0.30, 2.45);
+      camera.lookAt(0, 0.08, -0.40);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      // ライティング
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.72);
+      scene.add(ambientLight);
+
+      const mainLight = new THREE.DirectionalLight(0xfff5eb, 1.3);
+      mainLight.position.set(1.6, 4.2, 1.3);
+      mainLight.castShadow = true;
+      mainLight.shadow.mapSize.width = 1024;
+      mainLight.shadow.mapSize.height = 1024;
+      scene.add(mainLight);
+
+      const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.5);
+      rimLight.position.set(-2.2, 2.2, -3.2);
+      scene.add(rimLight);
+
+      createTable();
+      createServerBall();
+      createServerRacket();
+
+      window.addEventListener('resize', onResize);
+    }
+
+    function createTable() {
+      tableGroup = new THREE.Group();
+
+      const tableThick = 0.04;
+      const topGeo = new THREE.BoxGeometry(TABLE_W, tableThick, TABLE_L);
+      const topMat = new THREE.MeshStandardMaterial({
+        color: 0x0c2742,
+        roughness: 0.28,
+        metalness: 0.1
+      });
+      const topMesh = new THREE.Mesh(topGeo, topMat);
+      topMesh.position.y = -tableThick / 2;
+      topMesh.receiveShadow = true;
+      topMesh.castShadow = true;
+      tableGroup.add(topMesh);
+
+      // 白ライン
+      const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const sideLineGeo = new THREE.BoxGeometry(0.02, 0.002, TABLE_L);
+      const sL = new THREE.Mesh(sideLineGeo, lineMat);
+      sL.position.set(-TABLE_W / 2 + 0.01, 0.001, 0);
+      const sR = sL.clone();
+      sR.position.x = TABLE_W / 2 - 0.01;
+      tableGroup.add(sL, sR);
+
+      const endLineGeo = new THREE.BoxGeometry(TABLE_W, 0.002, 0.02);
+      const eNear = new THREE.Mesh(endLineGeo, lineMat);
+      eNear.position.set(0, 0.001, TABLE_L / 2 - 0.01);
+      const eFar = eNear.clone();
+      eFar.position.z = -TABLE_L / 2 + 0.01;
+      tableGroup.add(eNear, eFar);
+
+      const centerLineGeo = new THREE.BoxGeometry(0.006, 0.002, TABLE_L);
+      const centerLine = new THREE.Mesh(centerLineGeo, lineMat);
+      centerLine.position.set(0, 0.001, 0);
+      tableGroup.add(centerLine);
+
+      // ネット
+      const netGeo = new THREE.PlaneGeometry(TABLE_W + 0.26, NET_H);
+      const netMat = new THREE.MeshStandardMaterial({
+        color: 0xe2e8f0,
+        roughness: 0.8,
+        transparent: true,
+        opacity: 0.75,
+        side: THREE.DoubleSide
+      });
+      const net = new THREE.Mesh(netGeo, netMat);
+      net.position.set(0, NET_H / 2, 0);
+      tableGroup.add(net);
+
+      const tapeGeo = new THREE.BoxGeometry(TABLE_W + 0.26, 0.01, 0.005);
+      const tape = new THREE.Mesh(tapeGeo, lineMat);
+      tape.position.set(0, NET_H, 0);
+      tableGroup.add(tape);
+
+      // 床面
+      const floorGeo = new THREE.PlaneGeometry(24, 24);
+      const floorMat = new THREE.MeshStandardMaterial({ color: 0x04060c, roughness: 0.95 });
+      const floor = new THREE.Mesh(floorGeo, floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.y = -0.76;
+      floor.receiveShadow = true;
+      tableGroup.add(floor);
+
+      scene.add(tableGroup);
+    }
+
+    function createServerBall() {
+      const geo = new THREE.SphereGeometry(BALL_RADIUS, 32, 32);
+      const mat = new THREE.MeshStandardMaterial({
+        color: 0xf97316,
+        roughness: 0.35,
+        metalness: 0.05
+      });
+      serverBallMesh = new THREE.Mesh(geo, mat);
+      serverBallMesh.castShadow = true;
+      serverBallMesh.position.copy(BALL_START_POS);
+      scene.add(serverBallMesh);
+    }
+
+    /* サーバーラケット（表面：赤、裏面：黒、グリップ：木製、楕円形ブレード、手モデルなし）
+       グリップ中心を原点 (0, 0, 0) とし、ヘッド下向き時はグリップが【必ず上】になる設計 */
+    function createServerRacket() {
+      const group = new THREE.Group();
+
+      const bladeRadiusX = 0.14;
+      const bladeRadiusY = 0.165;
+      const bladeThick = 0.012;
+
+      // 楕円形ブレード本体（木芯）
+      const bladeGeo = new THREE.CylinderGeometry(bladeRadiusX, bladeRadiusX, bladeThick, 36);
+      bladeGeo.scale(1.0, 1.0, bladeRadiusY / bladeRadiusX);
+      const woodMat = new THREE.MeshStandardMaterial({ color: 0xd4a373, roughness: 0.6 });
+      const blade = new THREE.Mesh(bladeGeo, woodMat);
+      blade.rotation.x = Math.PI / 2;
+      blade.position.set(0, bladeRadiusY + 0.04, 0);
+      group.add(blade);
+
+      // ラバー（フォア面：赤、バック面：黒）
+      const rubberThick = 0.005;
+      const redMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.3 });
+      const redRubber = new THREE.Mesh(bladeGeo, redMat);
+      redRubber.rotation.x = Math.PI / 2;
+      redRubber.position.set(0, bladeRadiusY + 0.04, bladeThick / 2 + rubberThick / 2);
+      group.add(redRubber);
+
+      const blackMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.35 });
+      const blackRubber = new THREE.Mesh(bladeGeo, blackMat);
+      blackRubber.rotation.x = Math.PI / 2;
+      blackRubber.position.set(0, bladeRadiusY + 0.04, -(bladeThick / 2 + rubberThick / 2));
+      group.add(blackRubber);
+
+      // グリップ（柄：木製）原点(0,0,0)に配置
+      const gripLength = 0.16;
+      const gripWidth = 0.042;
+      const gripThick = 0.026;
+      const gripGeo = new THREE.BoxGeometry(gripWidth, gripLength, gripThick);
+      const gripMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.5 });
+      const grip = new THREE.Mesh(gripGeo, gripMat);
+      grip.position.set(0, 0, 0);
+      group.add(grip);
+
+      // グリップライン
+      const stripeGeo = new THREE.BoxGeometry(0.014, gripLength, gripThick * 1.02);
+      const stripeMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8 });
+      const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+      stripe.position.set(0, 0, 0);
+      group.add(stripe);
+
+      group.castShadow = true;
+      group.scale.set(0.85, 0.85, 0.85);
+
+      scene.add(group);
+      serverRacketGroup = group;
+    }
+
+    function onResize() {
+      const container = document.getElementById('canvas-container');
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (w && h) {
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      }
+    }
+
+    /* ==========================================================================
+       4. 画面右下の回答用ボール（Canvas 2D）
+       時計の数字やヒントは一切なし、リアルな立体球体を直感クリック
+       ========================================================================== */
+    const answerCanvas = document.getElementById('answer-ball-canvas');
+    const answerCtx = answerCanvas.getContext('2d');
+    let answerRipple = null;
+
+    function drawAnswerBall() {
+      const w = answerCanvas.width;
+      const h = answerCanvas.height;
+      const cx = w / 2;
+      const cy = h / 2;
+      const r = w * 0.44;
+
+      answerCtx.clearRect(0, 0, w, h);
+
+      // ボール外側グロー
+      const glowGrad = answerCtx.createRadialGradient(cx, cy, r * 0.88, cx, cy, r * 1.15);
+      glowGrad.addColorStop(0, 'rgba(249, 115, 22, 0.45)');
+      glowGrad.addColorStop(1, 'rgba(249, 115, 22, 0)');
+      answerCtx.fillStyle = glowGrad;
+      answerCtx.beginPath();
+      answerCtx.arc(cx, cy, r * 1.15, 0, Math.PI * 2);
+      answerCtx.fill();
+
+      // ボール球体グラデーション
+      const ballGrad = answerCtx.createRadialGradient(cx - r * 0.32, cy - r * 0.35, r * 0.05, cx, cy, r);
+      ballGrad.addColorStop(0, '#fed7aa');
+      ballGrad.addColorStop(0.3, '#fb923c');
+      ballGrad.addColorStop(0.7, '#f97316');
+      ballGrad.addColorStop(0.95, '#c2410c');
+      ballGrad.addColorStop(1.0, '#7c2d12');
+
+      answerCtx.fillStyle = ballGrad;
+      answerCtx.beginPath();
+      answerCtx.arc(cx, cy, r, 0, Math.PI * 2);
+      answerCtx.fill();
+
+      // 微細なシーム（球体の立体感）
+      answerCtx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+      answerCtx.lineWidth = 2.5;
+      answerCtx.beginPath();
+      answerCtx.ellipse(cx, cy, r * 0.98, r * 0.36, 0, 0, Math.PI * 2);
+      answerCtx.stroke();
+
+      // クリック波紋
+      if (answerRipple) {
+        answerCtx.strokeStyle = 'rgba(56, 189, 248, ' + answerRipple.alpha + ')';
+        answerCtx.fillStyle = 'rgba(56, 189, 248, ' + (answerRipple.alpha * 0.35) + ')';
+        answerCtx.lineWidth = 3.5;
+        answerCtx.beginPath();
+        answerCtx.arc(answerRipple.x, answerRipple.y, answerRipple.radius, 0, Math.PI * 2);
+        answerCtx.fill();
+        answerCtx.stroke();
+
+        answerRipple.radius += 2.8;
+        answerRipple.alpha -= 0.045;
+        if (answerRipple.alpha <= 0) answerRipple = null;
+      }
+    }
+
+    answerCanvas.addEventListener('pointerdown', (e) => {
+      sound.init();
+      if (gameState.phase !== 'answer' || gameState.answered) return;
+
+      const rect = answerCanvas.getBoundingClientRect();
+      const scale = answerCanvas.width / rect.width;
+      const x = (e.clientX - rect.left) * scale;
+      const y = (e.clientY - rect.top) * scale;
+
+      const cx = answerCanvas.width / 2;
+      const cy = answerCanvas.height / 2;
+      const dx = x - cx;
+      const dy = y - cy;
+
+      let deg = Math.atan2(dx, -dy) * (180 / Math.PI);
+      if (deg < 0) deg += 360;
+
+      let hour = deg / 30;
+      if (hour < 0.5) hour = 12;
+
+      answerRipple = { x, y, radius: 8, alpha: 1.0 };
+      submitAnswer(hour);
+    });
+
+    /* ==========================================================================
+       5. ゲームステート & フロー制御
+       ========================================================================== */
+    const gameState = {
+      mode: 'practice', // 'practice' or 'match'
+      currentIndex: 0,
+      totalQuestions: 8,
+      serveQueue: [],
+      currentServe: null,
+      score: 0,
+      answeredCount: 0,
+      phase: 'title', // 'title', 'freeze', 'toss', 'answer', 'result', 'final'
+      startTime: 0,
+      answered: false,
+      bouncedCourt1: false,
+      bouncedCourt2: false,
+      lastQuestionCorrect: false
+    };
+
+    const DOM = {
+      titleScreen: document.getElementById('title-screen'),
+      btnModePractice: document.getElementById('btn-mode-practice'),
+      btnModeMatch: document.getElementById('btn-mode-match'),
+      btnToTitle: document.getElementById('btn-to-title'),
+      badgeModeName: document.getElementById('badge-mode-name'),
+      qCounter: document.getElementById('q-counter'),
+      scoreCounter: document.getElementById('score-counter'),
+      statusBadge: document.getElementById('status-badge'),
+      resultModal: document.getElementById('result-modal'),
+      resultMark: document.getElementById('result-mark'),
+      resultServeName: document.getElementById('result-serve-name'),
+      btnRetry: document.getElementById('btn-retry'),
+      btnNext: document.getElementById('btn-next'),
+      finalModal: document.getElementById('final-modal'),
+      finalScore: document.getElementById('final-score'),
+      finalComment: document.getElementById('final-comment'),
+      btnFinalTitle: document.getElementById('btn-final-title'),
+      timerBar: document.getElementById('timer-bar'),
+      answerPanel: document.getElementById('answer-panel')
+    };
+
+    // モード選択
+    DOM.btnModePractice.addEventListener('click', () => {
+      sound.init();
+      sound.playClick();
+      startGame('practice');
+    });
+
+    DOM.btnModeMatch.addEventListener('click', () => {
+      sound.init();
+      sound.playClick();
+      startGame('match');
+    });
+
+    DOM.btnToTitle.addEventListener('click', () => {
+      sound.init();
+      sound.playClick();
+      returnToTitle();
+    });
+
+    DOM.btnFinalTitle.addEventListener('click', () => {
+      sound.init();
+      sound.playClick();
+      returnToTitle();
+    });
+
+    // 「もう一回」ボタン（練習モード時）
+    DOM.btnRetry.addEventListener('click', () => {
+      sound.init();
+      sound.playClick();
+      retryCurrentQuestion();
+    });
+
+    // 「次へ進む」ボタン
+    DOM.btnNext.addEventListener('click', () => {
+      sound.init();
+      sound.playClick();
+      advanceToNextQuestion();
+    });
+
+    function returnToTitle() {
+      gameState.phase = 'title';
+      DOM.resultModal.className = '';
+      DOM.finalModal.className = '';
+      DOM.titleScreen.classList.remove('hide');
+    }
+
+    function startGame(mode) {
+      gameState.mode = mode;
+      gameState.score = 0;
+      gameState.currentIndex = 0;
+      gameState.totalQuestions = 8;
+      gameState.answered = false;
+
+      DOM.badgeModeName.textContent = (mode === 'practice') ? '練習モード' : '実践モード';
+      DOM.badgeModeName.style.borderColor = (mode === 'practice') ? '#38bdf8' : '#fb923c';
+      DOM.badgeModeName.style.color = (mode === 'practice') ? '#38bdf8' : '#fb923c';
+
+      // 出題順序の作成
+      if (mode === 'practice') {
+        // 練習モード：1番から順番に出題（全8種）
+        gameState.serveQueue = [...SERVES];
+      } else {
+        // 実践モード：全8種からランダムに出題（計8問）
+        gameState.serveQueue = [...SERVES].sort(() => Math.random() - 0.5);
+      }
+
+      DOM.titleScreen.classList.add('hide');
+      DOM.resultModal.className = '';
+      DOM.finalModal.className = '';
+
+      loadServe(0);
+    }
+
+    function loadServe(index) {
+      gameState.currentIndex = index;
+      gameState.currentServe = gameState.serveQueue[index];
+      gameState.phase = 'freeze';
+      gameState.startTime = performance.now();
+      gameState.answered = false;
+      gameState.bouncedCourt1 = false;
+      gameState.bouncedCourt2 = false;
+
+      DOM.qCounter.textContent = `第 ${index + 1} 問 / ${gameState.totalQuestions}`;
+      DOM.scoreCounter.textContent = `正解: ${gameState.score}`;
+      DOM.statusBadge.textContent = '⏱ 構え静止中（3秒）';
+      DOM.statusBadge.className = 'badge-status';
+      DOM.timerBar.style.width = '100%';
+      DOM.answerPanel.className = '';
+      DOM.resultModal.className = '';
+
+      serverBallMesh.position.copy(BALL_START_POS);
+      applyStance(gameState.currentServe);
+    }
+
+    // サーバーの3秒静止構え位置の設定
+    // - 順横・順横上・順横下：ボールの【3時あたり】にラケットを添える（ヘッド下向き、グリップ上）
+    // - 逆横・逆横上・逆横下：ボールの【9時あたり】にラケットを添える（ヘッド上向き、グリップ下）
+    // - 真下・真上：ボールの【6時あたり】にラケットを添える（水平寝かせ）
+    function applyStance(s) {
+      const bp = BALL_START_POS;
+      const off = s.stanceOffset;
+
+      if (s.contactHour === 3) {
+        // 3時あたり（ボールの右側）: ヘッド下向き、グリップは必ず上！
+        serverRacketGroup.position.set(bp.x + off[0], bp.y + off[1] + 0.16, bp.z + off[2]);
+        serverRacketGroup.rotation.set(0, 0, Math.PI); // ヘッド下向き
+      } else if (s.contactHour === 9) {
+        // 9時あたり（ボールの左側）: ヘッド上向き、グリップは下！
+        serverRacketGroup.position.set(bp.x + off[0], bp.y + off[1] - 0.14, bp.z + off[2]);
+        serverRacketGroup.rotation.set(0, 0, 0); // ヘッド上向き
+      } else {
+        // 6時あたり（ボールの真下）: 水平（寝かせ）
+        serverRacketGroup.position.set(bp.x + off[0], bp.y + off[1] - 0.14, bp.z + off[2]);
+        serverRacketGroup.rotation.set(s.pitch, 0, -Math.PI / 2);
+      }
+    }
+
+    // 回答判定処理
+    function submitAnswer(clickedHour) {
+      if (gameState.answered) return;
+      gameState.answered = true;
+
+      const s = gameState.currentServe;
+      const roundedClicked = Math.round(clickedHour) % 12 || 12;
+
+      // 許容範囲（おまけ）判定
+      const isCorrect = s.validHours.includes(roundedClicked) || Math.abs(clickedHour - s.targetHour) <= 1.35;
+      gameState.lastQuestionCorrect = isCorrect;
+
+      showResultModal(isCorrect);
+    }
+
+    // 各問題の結果モーダル表示
+    function showResultModal(isCorrect) {
+      gameState.phase = 'result';
+      const s = gameState.currentServe;
+
+      DOM.resultMark.textContent = isCorrect ? '〇' : '×';
+      DOM.resultModal.className = isCorrect ? 'correct show' : 'incorrect show';
+      DOM.resultServeName.textContent = `正解：${s.name} (${s.targetHour}時)`;
+
+      if (isCorrect) {
+        sound.playSuccess();
+      } else {
+        sound.playFail();
+      }
+
+      // モードに応じたボタンの出し分け
+      if (gameState.mode === 'practice') {
+        DOM.btnRetry.style.display = 'block'; // 練習モードは「もう一回」あり
+      } else {
+        DOM.btnRetry.style.display = 'none';  // 実践モードは「次へ進む」のみ
+      }
+
+      DOM.answerPanel.className = '';
+    }
+
+    // 「もう一回」やり直す（練習モード専用：ノーカウントで再試行）
+    function retryCurrentQuestion() {
+      DOM.resultModal.className = '';
+      // スコアは加算も減算もせず、その問題を最初からやり直す
+      loadServe(gameState.currentIndex);
+    }
+
+    // 「次へ進む」処理
+    function advanceToNextQuestion() {
+      DOM.resultModal.className = '';
+
+      // 結果を確定してスコアに反映
+      if (gameState.lastQuestionCorrect) {
+        gameState.score++;
+      }
+      DOM.scoreCounter.textContent = `正解: ${gameState.score}`;
+
+      const nextIdx = gameState.currentIndex + 1;
+      if (nextIdx >= gameState.totalQuestions) {
+        // 8問終了 -> 最終結果画面へ
+        showFinalModal();
+      } else {
+        loadServe(nextIdx);
+      }
+    }
+
+    // 最終結果画面の表示
+    function showFinalModal() {
+      gameState.phase = 'final';
+      DOM.finalModal.classList.add('show');
+      DOM.finalScore.textContent = `8問中 ${gameState.score}問正解！`;
+
+      let comment = '';
+      if (gameState.score === 8) {
+        comment = '🏆 完全制覇！プロ並みの神眼！すべてのサーブを見破りました！';
+      } else if (gameState.score >= 6) {
+        comment = '⭐ 素晴らしい！超一流のレシーバーです！ほぼ完璧に見極められています！';
+      } else if (gameState.score >= 4) {
+        comment = '👍 合格ライン！回転の基本がしっかり身についています！';
+      } else if (gameState.score >= 1) {
+        comment = '💪 練習あるのみ！練習モードでラケットの擦る角度をじっくり観察してみよう！';
+      } else {
+        comment = '🔥 再挑戦！まずはラケットヘッドの向き（上・下・横）に注目してみよう！';
+      }
+      DOM.finalComment.textContent = comment;
+    }
+
+    /* ==========================================================================
+       6. アニメーション＆物理シーケンス（Three.js）
+       ========================================================================== */
+    function updatePhysics(time) {
+      if (!gameState.currentServe || gameState.phase === 'title' || gameState.phase === 'final') return;
+
+      const elapsed = (time - gameState.startTime) / 1000;
+      const s = gameState.currentServe;
+      const bp = BALL_START_POS;
+
+      // 【フェーズ1: 0.0s 〜 3.0s サーバーの3秒間静止構え】
+      if (elapsed < 3.0) {
+        gameState.phase = 'freeze';
+        applyStance(s);
+        serverBallMesh.position.copy(bp);
+        DOM.statusBadge.textContent = `⏱ 構え静止中 (${(3.0 - elapsed).toFixed(1)}s)`;
+        DOM.statusBadge.className = 'badge-status';
+        return;
+      }
+
+      // 【フェーズ2: 3.0s 〜 3.7s トスアップ】
+      if (elapsed >= 3.0 && elapsed < 3.7) {
+        gameState.phase = 'toss';
+        DOM.statusBadge.textContent = '🏓 トスアップ！';
+        DOM.statusBadge.className = 'badge-status';
+
+        const t = (elapsed - 3.0) / 0.7;
+        const tossHeight = Math.sin(t * Math.PI) * 0.28;
+        serverBallMesh.position.set(bp.x, bp.y + tossHeight, bp.z);
+
+        // バックスイング
+        const bOff = s.backswingOffset;
+        if (s.headDown) {
+          serverRacketGroup.position.set(bp.x + bOff[0], bp.y + bOff[1] + 0.16, bp.z + bOff[2]);
+          serverRacketGroup.rotation.set(s.pitch * t, -0.2 * t, Math.PI);
+        } else if (s.contactHour === 9) {
+          serverRacketGroup.position.set(bp.x + bOff[0], bp.y + bOff[1] - 0.14, bp.z + bOff[2]);
+          serverRacketGroup.rotation.set(s.pitch * t, 0.2 * t, 0);
+        } else {
+          serverRacketGroup.position.set(bp.x + bOff[0], bp.y + bOff[1] - 0.14, bp.z + bOff[2]);
+          serverRacketGroup.rotation.set(s.pitch, 0, -Math.PI / 2);
+        }
+        return;
+      }
+
+      // 【フェーズ3: 3.7s インパクト（参考動画ベースの鋭い擦り抜けアニメーション）】
+      if (elapsed >= 3.7 && elapsed < 3.82) {
+        if (!gameState.bouncedCourt1) {
+          sound.playImpact();
+          gameState.bouncedCourt1 = true;
+        }
+
+        const it = (elapsed - 3.7) / 0.12;
+        const sStart = s.impactStart;
+        const sEnd = s.impactEnd;
+
+        // X軸：順横系は【左から右へ（→）】、逆横系は【右から左へ（←）】
+        const curX = bp.x + sStart[0] + (sEnd[0] - sStart[0]) * it;
+        const curY = bp.y + sStart[1] + (sEnd[1] - sStart[1]) * it;
+        const curZ = bp.z + sStart[2] + (sEnd[2] - sStart[2]) * it;
+
+        if (s.headDown) {
+          serverRacketGroup.position.set(curX, curY + 0.16, curZ);
+          serverRacketGroup.rotation.set(s.pitch, -0.25 * (1 - it), Math.PI);
+        } else if (s.contactHour === 9) {
+          serverRacketGroup.position.set(curX, curY - 0.14, curZ);
+          serverRacketGroup.rotation.set(s.pitch, 0.25 * (1 - it), 0);
+        } else {
+          serverRacketGroup.position.set(curX, curY - 0.14, curZ);
+          serverRacketGroup.rotation.set(s.pitch, 0, -Math.PI / 2);
+        }
+      }
+
+      // 【フェーズ4: 3.7s 〜 5.7s (ぴったり2秒間) 回答受付 ＆ ボール飛行】
+      if (elapsed >= 3.7 && elapsed < 5.7) {
+        if (!gameState.answered) {
+          gameState.phase = 'answer';
+          DOM.statusBadge.textContent = '⚡ 回答受付中！(2.0s)';
+          DOM.statusBadge.className = 'badge-status active';
+          DOM.answerPanel.className = 'ready';
+
+          const flightTime = elapsed - 3.7;
+          const t = flightTime / 2.0;
+
+          // 2秒タイマーバー（100% -> 0%）
+          DOM.timerBar.style.width = Math.max(0, (1 - t) * 100) + '%';
+
+          // ボール飛行軌道（2回バウンド）
+          const startZ = bp.z;
+          const endZ = 1.15;
+          const curZ = startZ + (endZ - startZ) * t;
+
+          const startX = bp.x;
+          const endX = 0.0;
+          const curX = startX + (endX - startX) * t;
+
+          let curY = 0.22;
+          if (t < 0.45) {
+            const p = t / 0.45;
+            curY = bp.y * (1 - p) + BALL_RADIUS + Math.sin(p * Math.PI) * 0.12;
+          } else {
+            const p = (t - 0.45) / 0.55;
+            if (!gameState.bouncedCourt2 && t > 0.45) {
+              sound.playBounce();
+              gameState.bouncedCourt2 = true;
+            }
+            curY = (NET_H + 0.08) * Math.sin(p * Math.PI) + BALL_RADIUS;
+          }
+
+          serverBallMesh.position.set(curX, Math.max(BALL_RADIUS, curY), curZ);
+        }
+        return;
+      }
+
+      // 【フェーズ5: 5.7s 到達 ＆ 2秒タイムアップ】
+      if (elapsed >= 5.7 && !gameState.answered && gameState.phase === 'answer') {
+        submitAnswer(-999); // タイムアップは不正解（×）
+      }
+    }
+
+    function animate(time) {
+      requestAnimationFrame(animate);
+      updatePhysics(time);
+      drawAnswerBall();
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initThree();
+      requestAnimationFrame(animate);
+    });
+  </script>
+</body>
+</html>
